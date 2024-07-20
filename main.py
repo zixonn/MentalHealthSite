@@ -3,16 +3,23 @@ import datetime, os
 import firebase_admin
 from firebase_admin import credentials, firestore
 from groq import Groq
+from absl import app, logging
 
 app = Flask(__name__)
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
+# Initialize absl logging
+logging.set_verbosity(logging.INFO)
+logging.info('Initializing application...')
+
+# Initialize Firebase Admin SDK if not already initialized
 if not firebase_admin._apps:
     cred = credentials.Certificate('template/serviceAccountKey.json')
     firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://default.firebaseio.com'
+        'databaseURL': 'https://console.firebase.google.com/project/spacehack-348ab/database/spacehack-348ab-default-rtdb/data/~2F'
     })
 
+# Initialize Firestore
 db = firestore.client()
 
 def getChat():
@@ -25,7 +32,7 @@ def getChat():
     docs = chats_ref.stream()
 
     result = ""
-    for doc in reversed(list(docs)):
+    for doc in docs:
         chat = doc.to_dict()
         myMessage = message
         myMessage = myMessage.replace("{timestamp}", doc.id)
@@ -104,7 +111,8 @@ def add():
 
     db.collection('chats').document(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")).set(chat_data)
 
-    return redirect("/Therapist")
+    return redirect("/")
 
 if __name__ == '__main__':
+    logging.info('Starting Flask app...')
     app.run(host='0.0.0.0', port=5000)
