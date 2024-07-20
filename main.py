@@ -1,12 +1,39 @@
 from flask import Flask, request, redirect, render_template
 import datetime, os
-from getChat import *
-from replit import db
+import firebase_admin
+from firebase_admin import credentials, firestore
 from groq import Groq
 
 app = Flask(__name__)
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"), )
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
+if not firebase_admin._apps:
+    cred = credentials.Certificate('template/serviceAccountKey.json')
+    firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://default.firebaseio.com'
+    })
+
+db = firestore.client()
+
+def getChat():
+    message = ""
+    with open("template/therapist/message.html", "r") as f:
+        message = f.read()
+
+    chats_ref = db.collection('chats').order_by(
+        'timestamp', direction=firestore.Query.DESCENDING).limit(5)
+    docs = chats_ref.stream()
+
+    result = ""
+    for doc in reversed(list(docs)):
+        chat = doc.to_dict()
+        myMessage = message
+        myMessage = myMessage.replace("{timestamp}", doc.id)
+        myMessage = myMessage.replace("{message}", chat["urmessage"])
+        myMessage = myMessage.replace("{answer}", chat["Airesponse"])
+        result += myMessage
+
+    return result
 
 @app.route('/')
 def index():
@@ -21,7 +48,6 @@ def index():
 
     return page
 
-
 @app.route('/DrawZone')
 def DrawZone():
     with open("template/Draw/DrawZone.html", "r") as f:
@@ -35,10 +61,8 @@ def DrawZone():
 
     return page
 
-
-@app.route('/Therpist')
+@app.route('/Therapist')
 def TherapistChat():
-
     with open("template/therapist/chat.html", "r") as f:
         page = f.read()
 
@@ -49,12 +73,10 @@ def TherapistChat():
         footer = f.read()
 
     page = page.replace("{chats}", getChat())
-
     page = page.replace("{header}", header)
     page = page.replace("{footer}", footer)
 
     return page
-
 
 @app.route('/add', methods=["POST"])
 def add():
@@ -63,7 +85,7 @@ def add():
     date = datetime.datetime.now()
     timestamp = datetime.datetime.timestamp(date)
     prompt = (
-        f"You are a therpist and your patient said this {urmessage}, be as short as possible. Answer in the same language the user is using. Your answer must be under 50 words"
+        f"You are a therapist and your patient said this {urmessage}, be as short as possible. Answer in the same language the user is using. Your answer must be under 50 words"
     )
     response = client.chat.completions.create(
         messages=[{
@@ -74,13 +96,15 @@ def add():
     )
 
     Airesponse = response.choices[0].message.content
-    db[datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")] = {
-        "urmessage": request.form['message'],
+    chat_data = {
+        "timestamp": timestamp,
+        "urmessage": urmessage,
         "Airesponse": Airesponse
     }
 
-    return redirect("/")
+    db.collection('chats').document(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")).set(chat_data)
 
+    return redirect("/Therapist")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
