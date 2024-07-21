@@ -15,12 +15,15 @@ logging.info('Initializing application...')
 # Initialize Firebase Admin SDK if not already initialized
 if not firebase_admin._apps:
     cred = credentials.Certificate('template/serviceAccountKey.json')
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://console.firebase.google.com/project/spacehack-348ab/database/spacehack-348ab-default-rtdb/data/~2F'
-    })
+    firebase_admin.initialize_app(
+        cred, {
+            'databaseURL':
+            'https://console.firebase.google.com/project/spacehack-348ab/database/spacehack-348ab-default-rtdb/data/~2F'
+        })
 
 # Initialize Firestore
 db = firestore.client()
+
 
 def getChat():
     message = ""
@@ -42,6 +45,7 @@ def getChat():
 
     return result
 
+
 @app.route('/')
 def index():
     with open("template/Main.html", "r") as f:
@@ -55,6 +59,7 @@ def index():
 
     return page
 
+
 @app.route('/DrawZone')
 def DrawZone():
     with open("template/Draw/DrawZone.html", "r") as f:
@@ -67,6 +72,7 @@ def DrawZone():
     page = page.replace("{footer}", footer)
 
     return page
+
 
 @app.route('/Therapist')
 def TherapistChat():
@@ -84,6 +90,7 @@ def TherapistChat():
     page = page.replace("{footer}", footer)
 
     return page
+
 
 @app.route('/add', methods=["POST"])
 def add():
@@ -109,9 +116,75 @@ def add():
         "Airesponse": Airesponse
     }
 
-    db.collection('chats').document(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")).set(chat_data)
+    db.collection('chats').document(
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")).set(chat_data)
 
     return redirect("/")
+
+
+# Journal Routes
+@app.route('/Journal')
+def journal():
+    with open("template/journal/home_entries.html", "r") as f:
+        page = f.read()
+
+    with open("template/Components/header.html", "r") as f:
+        header = f.read()
+
+    with open("template/Components/footer.html", "r") as f:
+        footer = f.read()
+
+    page = page.replace("{header}", header)
+    page = page.replace("{footer}", footer)
+
+    return page
+
+
+@app.route('/new_entry')
+def new_entry():
+    with open("template/journal/new_entry.html", "r") as f:
+        page = f.read()
+
+    with open("template/Components/header.html", "r") as f:
+        header = f.read()
+
+    with open("template/Components/footer.html", "r") as f:
+        footer = f.read()
+
+    page = page.replace("{header}", header)
+    page = page.replace("{footer}", footer)
+
+    return page
+
+
+@app.route('/submit', methods=['POST'])
+def submit():
+    title = request.form['title']
+    content = request.form['content']
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry_data = {
+        'title': title,
+        'content': content,
+        'timestamp': timestamp
+    }
+    db.collection('journal').document(timestamp).set(entry_data)
+    return redirect("/Journal")
+
+
+@app.route('/past')
+def past_entries():
+    entries_ref = db.collection('journal').order_by(
+        'timestamp', direction=firestore.Query.DESCENDING)
+    docs = entries_ref.stream()
+    entries = [doc.to_dict() for doc in docs]
+    return render_template('journal/past_entries.html', entries=entries)
+
+
+@app.route('/entry/<entry_id>')
+def entry(entry_id):
+    entry_ref = db.collection('journal').document(entry_id)
+    entry = entry_ref.get().to_dict()
+    return render_template('entry.html', entry=entry)
 
 if __name__ == '__main__':
     logging.info('Starting Flask app...')

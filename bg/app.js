@@ -16,3 +16,4 @@ export default function Viewer() {
       <OrbitControls ref={ref} autoRotate />
     </Canvas>
   )
+}

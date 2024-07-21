@@ -165,7 +165,7 @@ export function Model(props) {
         scale={0.105}
       />
       <mesh
-        geometry={nodes.rootmini001.geometry}
+        geometry={nodes.rootmtyini001.geometry}
         material={materials['Material.025']}
         position={[1, 1.647, -1.014]}
         rotation={[0, -0.426, 0]}
